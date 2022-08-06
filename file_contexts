@@ -1,0 +1,2 @@
+#bp_input_subsystem
+/vendor/bin/bp_input_subsystem  u:object_r:bp_input_subsystem_exec:s0

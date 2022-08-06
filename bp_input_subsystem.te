@@ -1,0 +1,4 @@
+type bp_input_subsystem, domain;
+type bp_input_subsystem_exec, exec_type, vendor_file_type, file_type;
+type bp_input_subsystem__vendor_data_file, file_type, data_file_type;
+init_daemon_domain(bp_input_subsystem)

@@ -1,0 +1,30 @@
+cc_binary {
+    name: "bp_input_subsystem",
+    vendor: true,
+    srcs: [
+        "src/main_inputsubsystem.cpp",
+        "src/Input.cpp",
+        "src/ConfigParser.cpp",
+    ],
+    generated_headers: [
+        "toolbox_input_labels",     //defined in system/core/toolbox/Android.bp
+    ],
+    local_include_dirs: [
+        "include",
+    ],
+    include_dirs: [
+        "external/jsoncpp/include",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-fexceptions",
+    ],
+    shared_libs: [
+        "liblog",
+        "libutils",
+        "libjsoncpp"
+    ],
+    init_rc: ["bp.hardware.input-service.rc"],
+}

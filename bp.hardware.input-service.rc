@@ -1,0 +1,5 @@
+service vendor.bp-input /vendor/bin/bp_input_subsystem
+    class late_start
+    user root
+    group media_rw ext_data_rw external_storage everybody 
+    oneshot
