@@ -1,3 +1,12 @@
+# keyboard_monitor需求分析
+独立于原有的按键系统，另外写一个进程获取按键和组合按键，hal层通过另外的网络客户端，C++的客户端连接，java层的服务端接收发送过来的网络套接字，不能影响本来的按键系统。
+1. 接收输入系统的输入信号。
+2. 读取指定位置的输入配置文件，配置文件中包含应用系统需要感知的热键或组合快捷键。
+3. 配置文件中定义的热键或组合按键，发送给指定的系统应用，同时在系统中消耗掉按键事件。如果输入不包含在2中配置文件里面，该输入事件按系统正常逻辑分发。
+4. 配置文件示例。
+5. 需要提供配置文件更新接口，应用按照接口要求传入配置文件内容，Input系统能够更具输入内容更新配置文件，更新完成之后立即生效.(目前先做成由JAVA层应用程序更新配置文件，并发送socket命令给keyboard_monitor去重新读取配置文件。)
+6. 如果需要新增加服务，需要做服务的性能，内存，稳定性测试。
+
 # How to use it
 ## 1. 组合按键配置文件
 配置文件定义的内容如下：
@@ -11,47 +20,42 @@
     ]
 }
 ```
-组合按键的定义由name和keys组合，其中name定义了输入子系统当识别到keys中组合按键后发给JAVA层应用程序的信息，而keys定义了需要哪些按键才能触发name的发送。
+组合按键的定义由name和keys组合，其中name定义了keyboard_monitor当识别到keys中组合按键后发给JAVA层应用程序的信息，而keys定义了需要哪些按键才能触发name的发送。
 要注意的是keys中的字符串是有要求的，因为是从android input中读到的信息，所以和实际按键有一个对应关系，已经在Key Mapping中全部写清楚了按键对应关系，在添加定义时一定要先去查定义。
 配置文件暂时放在`/data/input_config.json`。
-目前input_subsystem/main_inputsubsystem.cpp中如下定义
+src/main_inputsubsystem.cpp中如下定义
 ```
 #define CONFIG_PATH "/data/input_config.json"
 ```
 
 # 2. Socket配置
-在input_subsystem/main_inputsubsystem.cpp中有如下定义：
+src/main_inputsubsystem.cpp中有如下定义：
 ```
 #define IP_ADDRESS    "127.0.0.1"
 #define PORT          5050
 ```
 可以根据socket server的实际情况进行修改。
 
-在input_subsystem/input.cpp中有如下定义：
+src/input.cpp中有如下定义：
 ```
 #define CMD_REREAD_CONFIG "cmd_config_file_updated\n"
 ```
-这个字符串是JAVA层应用程序通知输入子系统重新读取配置文件的命令。这里多了一个转义字符`\n`是因为目前test socket server app发出来默认带上的，后续视实际情况随时修改。
+这个字符串是JAVA层应用程序通知keyboard_monitor重新读取配置文件的命令。这里多了一个转义字符`\n`是因为目前test socket server app发出来默认带上的，后续视实际情况随时修改。
 
 # 3. 其他配置
-在/input_subsystem/input.cpp中有如下定义：
+在src/input.cpp中有如下定义：
 ```
 #define WAITING_SERVER_SECONDS 5
 ```
-当输入子系统无法connect JAVA层应用程序的socket server的时候的retry时间，后续视实际情况随时修改。
+当keyboard_monitor无法connect JAVA层应用程序的socket server的时候的retry时间，后续视实际情况随时修改。
+在src/ConfigParser.cpp中有如下定义：
+```
+#define TIMEOUT_MS 300L
+```
+可以调整这个参数来决定组合按键之间的响应时间，目前的300ms意味着必须在300ms的时间内同时按下所定义的组合键。
 
-# 输入子系统需求分析
-独立于原有的按键系统，另外写一个进程获取按键和组合按键，hal层通过另外的网络客户端，C++的客户端连接，java层的服务端接收发送过来的网络套接字，不能影响本来的按键系统。
-1. 接收输入系统的输入信号。
-2. 读取指定位置的输入配置文件，配置文件中包含应用系统需要感知的热键或组合快捷键。
-3. 配置文件中定义的热键或组合按键，发送给指定的系统应用，同时在系统中消耗掉按键事件。
-如果输入不包含在2中配置文件里面，该输入事件按系统正常逻辑分发。
-4. 配置文件示例。
-5. 需要提供配置文件更新接口，应用按照接口要求传入配置文件内容，Input系统能够更具输入内容更新配置文件，更新完成之后立即生效，或重启后生效。(已经和云渡微信沟通过：目前先做成由JAVA层应用程序更新配置文件，并发送socket命令给输入子系统去重新读取配置文件。)
-6. 如果需要新增加服务，需要做服务的性能，内存，稳定性测试。
-
-# 输入子系统架构设计
-基于需求分析，输入子系统设计成由两个class组合。首先是input class主要处理接收键盘按键事件，注册socket client，接收JAVA层应用程序发来的更新命令，并发送组合按键的name给JAVA层应用程序。其次是ConfigParser class负责解析配置文件，并判断input class识别到的每一个按键是否与配置文件内定义的相同，当满足配置文件的定义，返回组合按键的name给input class。
+# keyboard_monitor架构设计
+基于需求分析，keyboard_monitor设计成由两个class组合。首先是input class主要处理接收键盘按键事件，注册socket client，接收JAVA层应用程序发来的更新命令，并发送组合按键的name给JAVA层应用程序。其次是ConfigParser class负责解析配置文件，并判断input class识别到的每一个按键是否与配置文件内定义的相同，当满足配置文件的定义，返回组合按键的name给input class。
 ## Input class如何处理键盘按键事件
 ![](doc/Input_class_processing_keyinput.png)
 
@@ -65,7 +69,7 @@
 ![](doc/ConfigParser_parser_json_config.png)
 
 # 如何Debug
-只需要打开input_subsystem/CongParser.cpp的宏定义：
+只需要打开src/CongParser.cpp的宏定义：
 ```
 //#define DEBUG_INPUT
 ```
